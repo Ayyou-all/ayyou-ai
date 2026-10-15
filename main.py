@@ -65,3 +65,8 @@ def racine():
         "docs": "/docs",
         "statut": "actif",
     }
+
+
+@app.get("/sante")
+def sante():
+    return {"statut": "OK", "service": parametres.NOM_SERVICE, "version": parametres.VERSION}
