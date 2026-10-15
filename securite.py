@@ -4,7 +4,14 @@ Vérifie que chaque requête provient du backend Django autorisé via un en-têt
 """
 
 from fastapi import Header, HTTPException, status
-from .config import parametres
+
+try:
+    from .config import parametres
+except (ImportError, ValueError):
+    try:
+        from config import parametres
+    except (ImportError, ValueError):
+        from ayyouServiceIA.config import parametres
 
 
 def verifier_cle_ia(x_ayyou_ia_key: str = Header(..., alias="X-AYYOU-IA-KEY")):

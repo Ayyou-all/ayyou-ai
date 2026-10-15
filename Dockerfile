@@ -1,8 +1,9 @@
 FROM python:3.12-slim
 
-# Optimisation Python
+# Optimisation Python et configuration du PYTHONPATH
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
 WORKDIR /app
 
@@ -18,8 +19,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copie du code source du service IA
 COPY . .
 
+# Lien symbolique pour compatibilité native avec 'import ayyouServiceIA'
+RUN ln -s /app /app/ayyouServiceIA 2>/dev/null || true
+
 # Vérification de santé du service IA
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://127.0.0.1:8000/sante || exit 1
 
 EXPOSE 8000

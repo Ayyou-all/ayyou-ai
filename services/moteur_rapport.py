@@ -3,7 +3,13 @@ Moteur de génération du rapport hebdomadaire pour les gérants AYYOU.
 Analyse les performances commerciales, la rapidité en cuisine et formule des recommandations.
 """
 
-from ..schemas.rapport import ReponseRapportHebdo, RequeteRapportHebdo
+try:
+    from ..schemas.rapport import ReponseRapportHebdo, RequeteRapportHebdo
+except (ImportError, ValueError):
+    try:
+        from schemas.rapport import ReponseRapportHebdo, RequeteRapportHebdo
+    except (ImportError, ValueError):
+        from ayyouServiceIA.schemas.rapport import ReponseRapportHebdo, RequeteRapportHebdo
 
 
 def generer_rapport_hebdomadaire(requete: RequeteRapportHebdo) -> ReponseRapportHebdo:

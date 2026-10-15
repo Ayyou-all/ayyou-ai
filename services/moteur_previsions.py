@@ -4,11 +4,26 @@ Permet au gérant d'anticiper les coups de feu en cuisine et d'optimiser ses sto
 """
 
 from typing import List
-from ..schemas.previsions import (
-    PrevisionHeure,
-    ReponsePrevisions,
-    RequetePrevisions,
-)
+
+try:
+    from ..schemas.previsions import (
+        PrevisionHeure,
+        ReponsePrevisions,
+        RequetePrevisions,
+    )
+except (ImportError, ValueError):
+    try:
+        from schemas.previsions import (
+            PrevisionHeure,
+            ReponsePrevisions,
+            RequetePrevisions,
+        )
+    except (ImportError, ValueError):
+        from ayyouServiceIA.schemas.previsions import (
+            PrevisionHeure,
+            ReponsePrevisions,
+            RequetePrevisions,
+        )
 
 
 def calculer_previsions_flux(requete: RequetePrevisions) -> ReponsePrevisions:

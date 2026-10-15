@@ -3,7 +3,14 @@ Route de santé (health check) pour supervision.
 """
 
 from fastapi import APIRouter
-from ..config import parametres
+
+try:
+    from ..config import parametres
+except (ImportError, ValueError):
+    try:
+        from config import parametres
+    except (ImportError, ValueError):
+        from ayyouServiceIA.config import parametres
 
 routeur = APIRouter(prefix="/ia", tags=["Santé"])
 

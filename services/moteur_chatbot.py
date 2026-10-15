@@ -5,8 +5,17 @@ Analyse les requêtes gourmandes en langage naturel et propose des plats réels 
 
 import re
 from typing import List, Optional, Tuple
-from ..schemas.chatbot import MessageChatbot, ReponseChatbot
-from ..schemas.recommandations import PlatCandidat
+
+try:
+    from ..schemas.chatbot import MessageChatbot, ReponseChatbot
+    from ..schemas.recommandations import PlatCandidat
+except (ImportError, ValueError):
+    try:
+        from schemas.chatbot import MessageChatbot, ReponseChatbot
+        from schemas.recommandations import PlatCandidat
+    except (ImportError, ValueError):
+        from ayyouServiceIA.schemas.chatbot import MessageChatbot, ReponseChatbot
+        from ayyouServiceIA.schemas.recommandations import PlatCandidat
 
 
 def extraire_budget_depuis_texte(texte: str) -> Optional[int]:

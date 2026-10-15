@@ -9,12 +9,29 @@ Prend en compte :
 """
 
 from typing import List, Tuple
-from ..schemas.recommandations import (
-    PlatCandidat,
-    PlatRecommande,
-    ReponseRecommandation,
-    RequeteRecommandation,
-)
+
+try:
+    from ..schemas.recommandations import (
+        PlatCandidat,
+        PlatRecommande,
+        ReponseRecommandation,
+        RequeteRecommandation,
+    )
+except (ImportError, ValueError):
+    try:
+        from schemas.recommandations import (
+            PlatCandidat,
+            PlatRecommande,
+            ReponseRecommandation,
+            RequeteRecommandation,
+        )
+    except (ImportError, ValueError):
+        from ayyouServiceIA.schemas.recommandations import (
+            PlatCandidat,
+            PlatRecommande,
+            ReponseRecommandation,
+            RequeteRecommandation,
+        )
 
 
 def determiner_contexte_moment(heure: int) -> Tuple[str, List[str], List[str]]:
