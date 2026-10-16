@@ -15,8 +15,10 @@ Microservice d'intelligence artificielle dédié aux plateformes FoodTech et mar
 Ce microservice n'est pas exposé directement aux clients finaux.
 Chaque requête doit provenir du backend Django via l'en-tête HTTP :
 ```http
-X-AYYOU-IA-KEY: cle-secrete-interne-ayyou-ia-2026
+X-AYYOU-IA-KEY: <valeur de AYYOU_CLE_SECRETE_IA>
 ```
+
+La clé est lue dans la variable `AYYOU_CLE_SECRETE_IA` (fichier `.env`). Elle doit être identique à `AYYOU_SERVICE_IA_CLE_INTERNE` côté backend. Une valeur par défaut existe pour rester compatible avec le déploiement Docker actuel : remplacez-la en production.
 
 ## Démarrage Local
 
