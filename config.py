@@ -3,6 +3,11 @@ Configuration du microservice d'Intelligence Artificielle AYYOU.
 """
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 class ParametresIA:
