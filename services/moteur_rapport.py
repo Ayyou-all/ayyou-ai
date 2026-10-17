@@ -26,18 +26,18 @@ def generer_rapport_hebdomadaire(requete: RequeteRapportHebdo) -> ReponseRapport
 
     # Points forts
     points_forts = []
-    if requete.taux_acceptation_pourcent >= 95.0:
-        points_forts.append(f"Excellente réactivité : taux d'acceptation de {requete.taux_acceptation_pourcent}% des commandes.")
-    if requete.temps_moyen_preparation_minutes <= 25:
-        points_forts.append(f"Vitesse de préparation remarquable ({requete.temps_moyen_preparation_minutes} min en moyenne).")
+    taux = requete.taux_acceptation_pourcent
+    temps = requete.temps_moyen_preparation_minutes
+    if taux is not None and taux >= 95.0:
+        points_forts.append(f"Excellente réactivité : taux d'acceptation de {taux}% des commandes.")
+    if temps is not None and temps <= 25:
+        points_forts.append(f"Vitesse de préparation remarquable ({temps} min en moyenne).")
     if panier_moyen >= 4500:
         points_forts.append(f"Panier moyen élevé ({panier_moyen:,} FCFA), signe d'un menu bien valorisé.")
-    if not points_forts:
-        points_forts.append("Activité constante sur la plateforme AYYOU.")
 
     # Recommandations concrètes
     recommandations = []
-    if requete.temps_moyen_preparation_minutes > 30:
+    if temps is not None and temps > 30:
         recommandations.append(
             "Réduisez le temps d'attente des livreurs au comptoir en pré-emballant les sauces et couverts à l'avance."
         )
@@ -45,14 +45,14 @@ def generer_rapport_hebdomadaire(requete: RequeteRapportHebdo) -> ReponseRapport
         recommandations.append(
             f"Mettez en avant le plat vedette '{plat_star.split('(')[0].strip()}' dans une courte vidéo Reels de 30 secondes pour booster vos vues."
         )
-    recommandations.append(
-        "Proposez des formules combinées (plat + boisson locale Bissap/Bouye) pour faire progresser votre panier moyen de 15%."
-    )
+    if taux is not None and taux < 90:
+        recommandations.append(
+            f"Votre taux d'acceptation est de {taux}% : fermez le restaurant dans l'application quand vous ne pouvez pas servir."
+        )
 
     resume = (
         f"Cette semaine, {requete.nom_restaurant} a traité {total_cmd} commandes pour un chiffre d'affaires total "
-        f"de {ca:,} FCFA (panier moyen : {panier_moyen:,} FCFA). La régularité de votre brigade permet de fidéliser "
-        "votre clientèle dakaroise."
+        f"de {ca:,} FCFA (panier moyen : {panier_moyen:,} FCFA)."
     )
 
     return ReponseRapportHebdo(

@@ -127,19 +127,32 @@ def test_chatbot_comprehension_budget():
     assert "Yassa Poulet Fermier" in data["texte_reponse"]
 
 
-def test_previsions_coup_de_feu():
+def test_previsions_calculees_sur_l_historique():
+    # 4 vendredis : 8 commandes à 13h et 2 à 10h au total
     payload = {
         "restaurant_id": 1,
         "nom_restaurant": "Chez Loutcha",
-        "jour_cible": 4,  # Vendredi
+        "jour_cible": 4,
+        "nombre_semaines": 4,
+        "historique_ventes": [
+            {"jour_semaine": 4, "heure": 13, "quantite_commandes": 8},
+            {"jour_semaine": 4, "heure": 10, "quantite_commandes": 2},
+            {"jour_semaine": 1, "heure": 12, "quantite_commandes": 40},  # mardi : ignoré
+        ],
     }
-
     rep = client.post("/ia/previsions/", json=payload, headers=EN_TETE_AUTH)
     assert rep.status_code == 200
     data = rep.json()
-    assert len(data["previsions_par_heure"]) > 0
-    assert "heure_de_pointe" in data
-    assert len(data["conseils_organisation"]) >= 2
+    assert [(p["heure"], p["commandes_estimees"]) for p in data["previsions_par_heure"]] == [(10, 0.5), (13, 2.0)]
+    assert data["previsions_par_heure"][1]["intensite"] == "COUP_DE_FEU"
+    assert data["heure_de_pointe"].startswith("13h")
+
+
+def test_previsions_sans_historique_n_inventent_rien():
+    payload = {"restaurant_id": 1, "nom_restaurant": "Chez Loutcha", "jour_cible": 4}
+    data = client.post("/ia/previsions/", json=payload, headers=EN_TETE_AUTH).json()
+    assert data["previsions_par_heure"] == []
+    assert data["heure_de_pointe"] == ""
 
 
 def test_rapport_hebdomadaire():
@@ -162,4 +175,11 @@ def test_rapport_hebdomadaire():
     assert data["panier_moyen_fcfa"] == 3500  # 420000 / 120
     assert "Thiéboudienne Penda Mbaye" in data["plat_star"]
     assert len(data["points_forts"]) >= 1
-    assert len(data["recommandations_actionnables"]) >= 1
+
+
+def test_rapport_sans_metriques_connues():
+    payload = {"restaurant_id": 1, "nom_restaurant": "Chez Loutcha", "total_commandes": 6, "chiffre_affaires_fcfa": 18000,
+               "taux_acceptation_pourcent": 80.0}
+    data = client.post("/ia/rapport/", json=payload, headers=EN_TETE_AUTH).json()
+    assert data["panier_moyen_fcfa"] == 3000
+    assert any("80.0%" in r for r in data["recommandations_actionnables"])

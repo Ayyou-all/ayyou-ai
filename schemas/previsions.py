@@ -18,11 +18,12 @@ class RequetePrevisions(BaseModel):
     nom_restaurant: str
     historique_ventes: List[VenteHistorique] = Field(default_factory=list)
     jour_cible: int = Field(default=4, ge=0, le=6, description="0=Lundi ... 4=Vendredi ... 6=Dimanche")
+    nombre_semaines: int = Field(default=4, ge=1, description="Nombre de semaines couvertes par l'historique")
 
 
 class PrevisionHeure(BaseModel):
     heure: int
-    commandes_estimees: int
+    commandes_estimees: float
     intensite: str  # "CALME" | "MODÉRÉ" | "COUP_DE_FEU"
 
 
