@@ -2,7 +2,7 @@
 Schémas Pydantic pour le rapport hebdomadaire d'aide à la décision du gérant.
 """
 
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -18,8 +18,9 @@ class RequeteRapportHebdo(BaseModel):
     total_commandes: int = 0
     chiffre_affaires_fcfa: int = 0
     plats_vendus: List[PlatVendu] = Field(default_factory=list)
-    taux_acceptation_pourcent: float = 100.0
-    temps_moyen_preparation_minutes: int = 25
+    # None = donnée encore inconnue (jamais de valeur par défaut inventée)
+    taux_acceptation_pourcent: Optional[float] = None
+    temps_moyen_preparation_minutes: Optional[int] = None
 
 
 class ReponseRapportHebdo(BaseModel):
