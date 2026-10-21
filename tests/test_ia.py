@@ -183,3 +183,54 @@ def test_rapport_sans_metriques_connues():
     data = client.post("/ia/rapport/", json=payload, headers=EN_TETE_AUTH).json()
     assert data["panier_moyen_fcfa"] == 3000
     assert any("80.0%" in r for r in data["recommandations_actionnables"])
+
+
+# ---------------------------------------------------------------------------
+# Recherche vocale intelligente
+# ---------------------------------------------------------------------------
+def _analyser(texte, quartiers=None):
+    rep = client.post(
+        "/ia/recherche-vocale/",
+        json={"texte": texte, "quartiers_connus": quartiers or []},
+        headers=EN_TETE_AUTH,
+    )
+    assert rep.status_code == 200
+    return rep.json()
+
+
+def test_recherche_vocale_plat_pas_cher_dans_un_quartier():
+    resultat = _analyser("Je veux un Thiéboudienne pas cher à Médina s'il te plaît", ["Médina", "Plateau"])
+
+    assert resultat["specialites"] == ["thieb"]
+    assert "ceebu jen" in resultat["termes_recherche"]
+    assert resultat["quartier"] == "Médina"
+    assert resultat["tri"] == "PRIX"
+    assert resultat["mots_libres"] == []
+
+
+def test_recherche_vocale_budget_dicte_en_toutes_lettres():
+    resultat = _analyser("trouve moi du poulet yassa à moins de 3 000 francs")
+
+    assert resultat["budget_max_fcfa"] == 3000
+    assert set(resultat["specialites"]) == {"yassa", "poulet"}
+
+
+def test_recherche_vocale_nom_de_restaurant_et_ouverture():
+    resultat = _analyser("je veux manger chez Loutcha, qui est ouvert maintenant")
+
+    assert resultat["specialites"] == []
+    assert resultat["mots_libres"] == ["loutcha"]
+    assert resultat["ouvert_seulement"] is True
+
+
+def test_recherche_vocale_quartier_inconnu_ignore():
+    resultat = _analyser("une pizza à Ziguinchor", ["Plateau"])
+
+    assert resultat["quartier"] is None
+    assert resultat["specialites"] == ["pizza"]
+    assert resultat["mots_libres"] == ["ziguinchor"]
+
+
+def test_recherche_vocale_cle_obligatoire():
+    rep = client.post("/ia/recherche-vocale/", json={"texte": "pizza"}, headers={"X-AYYOU-IA-KEY": "mauvaise"})
+    assert rep.status_code == 403
