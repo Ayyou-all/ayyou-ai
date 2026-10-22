@@ -9,6 +9,7 @@ Architecture :
 5. Formulation naturelle par LLM (OpenRouter) avec garde-fous stricts et repli déterministe bienveillant.
 """
 
+import difflib
 import logging
 import os
 import re
@@ -157,6 +158,20 @@ def extraire_budget_robuste(texte: str) -> Optional[int]:
 extraire_budget_depuis_texte = extraire_budget_robuste
 
 
+def normaliser_texte_culinaire(texte: str) -> str:
+    """Normalise les variantes phonétiques et orthographiques fréquentes (Whisper / saisie)."""
+    if not texte:
+        return ""
+    t = texte.lower()
+    t = re.sub(r"\bh?amb(?:ou|[eou])rg?[ue]*r?s?\b", "burger", t)
+    t = re.sub(r"\bth?i?[eé]b(?:oudienne)?s?|ceebu|tieb\b", "thieb", t)
+    t = re.sub(r"\bpastell?es?\b", "pastel", t)
+    t = re.sub(r"\btacos?\b", "tacos", t)
+    t = re.sub(r"\bch?awarmas?\b", "chawarma", t)
+    t = re.sub(r"\bpoulets?\s+(?:r[oô]tits?|r[oô]tis?)\b", "poulet", t)
+    return t
+
+
 def filtrer_et_classer_plats(
     plats: List[PlatCandidat],
     termes_recherche: List[str],
@@ -166,6 +181,7 @@ def filtrer_et_classer_plats(
     """
     Filtre et classe les plats candidats.
     RÈGLE ABSOLUE : tout plat dont le prix dépasse budget_max est STRICTEMENT éliminé.
+    Prend en compte la recherche exacte, normalisée et phonétique (ex: amberguer -> Amburger).
     """
     candidats = []
     quartier_clean = quartier.lower().strip() if quartier else None
@@ -176,13 +192,27 @@ def filtrer_et_classer_plats(
             continue
 
         texte_plat = f"{plat.nom} {plat.description} {plat.categorie} {plat.nom_restaurant}".lower()
+        texte_plat_norm = normaliser_texte_culinaire(texte_plat)
         score = 0
 
         # Correspondance mots-clés
         if termes_recherche:
             for terme in termes_recherche:
-                if terme.lower() in texte_plat:
-                    score += 15
+                terme_l = terme.lower()
+                terme_norm = normaliser_texte_culinaire(terme_l)
+
+                # 1. Correspondance sous-chaîne directe ou normalisée
+                if terme_l in texte_plat or terme_norm in texte_plat_norm or terme_norm in texte_plat:
+                    score += 35
+                else:
+                    # 2. Similarité phonétique / fuzzy matching (ex: amberguer -> amburger)
+                    mots_plat = re.findall(r"\w+", texte_plat_norm)
+                    for mot in mots_plat:
+                        if len(mot) >= 4 and len(terme_norm) >= 4:
+                            ratio = difflib.SequenceMatcher(None, terme_norm, mot).ratio()
+                            if ratio >= 0.70:
+                                score += int(ratio * 30)
+                                break
 
         # Correspondance quartier
         if quartier_clean and quartier_clean in texte_plat:
@@ -191,8 +221,9 @@ def filtrer_et_classer_plats(
         # Bonus popularité légère
         score += min(plat.nombre_likes, 10)
 
-        # Si recherche explicite, n'inclure que les plats qui ont un score positif
-        if score > 0 or not termes_recherche:
+        # Si l'utilisateur a exprimé une recherche précise, n'inclure que les plats qui correspondent (score >= 15)
+        # S'il n'y a pas de terme de recherche (juste un budget ou demande générale), inclure les plats disponibles
+        if (termes_recherche and score >= 15) or not termes_recherche:
             candidats.append((score, plat))
 
     # Tri : d'abord le score de pertinence, puis le prix croissant (accessibilité)
@@ -226,7 +257,7 @@ def appeler_llm_conversationnel(
             f"- {p.nom} de {p.nom_restaurant} | Prix: {p.prix_fcfa:,} FCFA | Description: {p.description or 'Spécialité maison'}"
         )
     contexte_plats = "\n".join(lignes_plats) if lignes_plats else "Aucun plat disponible sous ce critère."
-
+ # prompt systeme pour le chatbot
     prompt_systeme = (
         "Tu es Chef AYYOU, l'assistant culinaire virtuel de la plateforme AYYOU à Dakar, Sénégal.\n"
         "Ton ton est chaleureux, poli, authentique et accueillant (expressions dakarorises bienveillantes comme 'Dalal ak jàmm !', 'Régalez-vous !').\n\n"
@@ -351,15 +382,37 @@ def traiter_message_chatbot(message: MessageChatbot) -> ReponseChatbot:
 
     # 5. Extraction des spécialités culinaires et mots-clés
     specialites_senegalaises = [
-        "thieb", "ceebu", "thiéboudienne", "thieboudienne", "yassa", "mafe", "mafé",
-        "dibi", "pastels", "fataya", "nem", "burger", "pizza", "chawarma", "poulet",
-        "poisson", "crevette", "brochette", "salade", "jus", "bouye", "bissap", "dessert",
-        "tacos", "viande", "ndambé", "ndambe"
+        "thieb", "ceebu", "thiéboudienne", "thieboudienne", "tieb",
+        "yassa", "mafe", "mafé", "dibi",
+        "pastels", "pastel", "pastelle", "pastelles", "fataya", "nem", "nems",
+        "burger", "burgers", "hamburger", "hamburgers", "amberguer", "hambourger", "cheeseburger",
+        "pizza", "pizzas", "chawarma", "shawarma",
+        "poulet", "poulets", "roti", "rotit", "rôti",
+        "poisson", "poissons", "crevette", "crevettes",
+        "brochette", "brochettes", "salade", "jus", "bouye", "bissap", "dessert",
+        "tacos", "taco", "viande", "ndambé", "ndambe"
     ]
     mots_cles = []
+    texte_norm = normaliser_texte_culinaire(texte_lower)
     for sp in specialites_senegalaises:
-        if sp in texte_lower:
+        if sp in texte_lower or sp in texte_norm:
             mots_cles.append(sp)
+
+    # Extraction dynamique : détection de termes similaires aux noms des plats disponibles
+    mots_phrase = re.findall(r"\b[a-zA-ZÀ-ÿ]{3,}\b", texte_lower)
+    mots_communs_a_ignorer = {
+        "bonjour", "salut", "salam", "coucou", "hello", "savoir", "plat", "plats",
+        "repas", "manger", "veux", "voudrais", "aimerais", "donne", "trouve", "cherche",
+        "avec", "pour", "dans", "chez", "midi", "soir", "dakar", "ayyou", "chef",
+        "avoir", "faire", "plus", "moins", "quel", "quels", "quelle", "quelles", "disponible"
+    }
+    for mot in mots_phrase:
+        if mot not in mots_communs_a_ignorer and mot not in mots_cles:
+            for plat in (message.plats_disponibles or []):
+                for nm in re.findall(r"\w+", plat.nom.lower()):
+                    if len(nm) >= 3 and difflib.SequenceMatcher(None, mot, nm).ratio() >= 0.72:
+                        mots_cles.append(nm)
+                        break
 
     # Détection de demande relative "moins cher" en utilisant l'historique
     demande_moins_cher = "moins cher" in texte_lower or "plus abordable" in texte_lower or "plus economique" in texte_lower
