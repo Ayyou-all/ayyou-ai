@@ -1,20 +1,19 @@
 """
 Point d'entrée du Microservice d'Intelligence Artificielle AYYOU.
 
-Fournit 5 capacités IA spécialisées FoodTech :
-1. Recommandations déterministes contextualisées (affinité, heure, Dakar)
-2. Chatbot culinaire sous budget avec cartes de plats réels cliquables
-3. Prévisions de flux et coups de feu en cuisine
-4. Rapport managérial hebdomadaire pour les gérants
-5. Recherche vocale intelligente (phrase dictée -> filtres de recherche)
+Fournit les capacités IA FoodTech :
+1. Transcription vocale haute précision (Speech-to-Text avec Whisper)
+2. Chatbot culinaire conversationnel sous contrainte budgétaire stricte (LLM)
+3. Recherche vocale intelligente (phrase dictée -> filtres de recherche)
+4. Recommandations contextualisées de plats réels
 """
 
 import sys
 from pathlib import Path
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI  # pyrefly: ignore [missing-import]
+from fastapi.middleware.cors import CORSMiddleware  # pyrefly: ignore [missing-import]
 
-# Assure que le microservice IA peut être lancé directement via `uvicorn main:app` ou `uvicorn ayyouServiceIA.main:app`
+# Configuration des chemins système pour exécution autonome ou via module
 dossier_ia = Path(__file__).resolve().parent
 racine_projet = dossier_ia.parent
 
@@ -22,17 +21,24 @@ for chemin in (str(dossier_ia), str(racine_projet)):
     if chemin not in sys.path:
         sys.path.insert(0, chemin)
 
-
 try:
-    from ayyouServiceIA.config import parametres
-    from ayyouServiceIA.routes import chatbot, previsions, rapport, recherche_vocale, recommandations, sante
-except ImportError:
-    try:
-        from .config import parametres
-        from .routes import chatbot, previsions, rapport, recherche_vocale, recommandations, sante
-    except ImportError:
-        from config import parametres
-        from routes import chatbot, previsions, rapport, recherche_vocale, recommandations, sante
+    from ayyouServiceIA.config import parametres  # pyrefly: ignore [missing-import]
+    from ayyouServiceIA.routes import (  # pyrefly: ignore [missing-import]
+        chatbot,
+        recherche_vocale,
+        recommandations,
+        sante,
+        transcription,
+    )
+except (ImportError, ModuleNotFoundError):
+    from config import parametres  # pyrefly: ignore [missing-import]
+    from routes import (  # pyrefly: ignore [missing-import]
+        chatbot,
+        recherche_vocale,
+        recommandations,
+        sante,
+        transcription,
+    )
 
 app = FastAPI(
     title=parametres.NOM_SERVICE,
@@ -51,24 +57,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inclusion des routeurs
+# Inclusion des routeurs actifs : Whisper, Chatbot Culinaire sous budget, Recherche vocale, Recommandations
 app.include_router(sante.routeur)
-app.include_router(recommandations.routeur)
+app.include_router(transcription.routeur)
 app.include_router(chatbot.routeur)
-app.include_router(previsions.routeur)
-app.include_router(rapport.routeur)
 app.include_router(recherche_vocale.routeur)
+app.include_router(recommandations.routeur)
 
 
-@app.get("/")
+@app.on_event("startup")
+def precharger_whisper():
+    """Pré-charge le modèle Whisper en mémoire dès le lancement du serveur."""
+    try:
+        from services.moteur_transcription import obtenir_pipeline_whisper
+        obtenir_pipeline_whisper()
+    except Exception:
+        try:
+            from ayyouServiceIA.services.moteur_transcription import obtenir_pipeline_whisper
+            obtenir_pipeline_whisper()
+        except Exception:
+            pass
+
+
+@app.get("/", tags=["Supervision"])
 def racine():
     return {
         "message": "Bienvenue sur le service IA d'AYYOU.",
         "docs": "/docs",
         "statut": "actif",
+        "service": parametres.NOM_SERVICE,
+        "version": parametres.VERSION,
     }
 
 
-@app.get("/sante")
-def sante():
-    return {"statut": "OK", "service": parametres.NOM_SERVICE, "version": parametres.VERSION}
+@app.get("/sante", tags=["Supervision"])
+@app.get("/sante/", tags=["Supervision"])
+def verifier_etat_sante():
+    return {
+        "statut": "OK",
+        "service": parametres.NOM_SERVICE,
+        "version": parametres.VERSION,
+    }
+
+if __name__ == "__main__":
+    # pyrefly: ignore[missing-import]
+    import uvicorn
+    uvicorn.run("main:app", host=parametres.HOTE, port=parametres.PORT, reload=True)
